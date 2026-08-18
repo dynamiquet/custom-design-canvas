@@ -29,12 +29,12 @@
     
     /* Top Toolbar */
     header {
-      height: 52px; background: var(--panel-bg); border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between; padding: 0 12px;
-      z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.02); gap: 8px; flex-wrap: nowrap; overflow-x: auto;
+      background: var(--panel-bg); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; padding: 6px 12px;
+      z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.02); gap: 6px; flex-wrap: wrap; min-height: 52px;
     }
 
-    .toolbar-group { display: flex; align-items: center; gap: 4px; border-right: 1px solid var(--border); padding-right: 8px; }
+    .toolbar-group { display: flex; align-items: center; gap: 3px; border-right: 1px solid var(--border); padding-right: 6px; flex-wrap: wrap; }
     .toolbar-group:last-child { border-right: none; }
 
     input[type="text"], select {
@@ -68,7 +68,7 @@
 
     /* Elements */
     .element { position: absolute; pointer-events: auto; user-select: none; }
-    .element-rect, .element-ellipse { border: 2px solid var(--text-main); width: 100%; height: 100%; }
+    .element-rect, .element-ellipse { border: 2px solid var(--text-main); width: 100%; height: 100%; box-sizing: border-box; }
     .element-ellipse { border-radius: 50%; }
     .element-sticky {
       background: var(--sticky-bg); box-shadow: 2px 4px 10px rgba(0,0,0,0.06);
@@ -208,6 +208,12 @@
     .smart-guide.horizontal { height: 1px; left: 0; right: 0; }
     .smart-guide.vertical { width: 1px; top: 0; bottom: 0; }
 
+    /* Lasso Selection */
+    #lasso-rect {
+      position: absolute; border: 1.5px dashed var(--accent); background: rgba(79,99,210,0.07);
+      pointer-events: none; z-index: 88;
+    }
+
     /* Dimension Label */
     .dim-label {
       position: absolute; background: rgba(79, 99, 210, 0.9); color: #fff; padding: 2px 6px;
@@ -223,51 +229,70 @@
 <div id="app">
   <!-- Top Bar Controls -->
   <header>
+    <!-- Board Name -->
     <div class="toolbar-group">
-      <input type="text" id="board-title" value="My Whiteboard" style="width: 130px;" title="Board Name (determines local session state)">
+      <input type="text" id="board-title" value="My Whiteboard" style="width:120px;" title="Board Name">
     </div>
 
     <!-- Drawing Tools -->
     <div class="toolbar-group" id="tool-buttons">
-      <button class="btn active" data-tool="select" title="Select (V) — Click to select, drag to move">🖱️ Select</button>
-      <button class="btn" data-tool="rect" title="Rectangle (R) — Click and drag to draw">🔲 Rect</button>
-      <button class="btn" data-tool="ellipse" title="Ellipse (O) — Click and drag to draw">⚪ Circle</button>
-      <button class="btn" data-tool="line" title="Line (L) — Click start, drag to end">📏 Line</button>
-      <button class="btn" data-tool="path" title="Freehand Pen (P) — Draw freely, smooths on release">✏️ Pen</button>
-      <button class="btn" data-tool="text" title="Text (T) — Click to place an editable text box">📝 Text</button>
-      <button class="btn" data-tool="sticky" title="Sticky Note (S) — Click to place a note">📌 Sticky</button>
-      <button class="btn" id="btn-img" title="Upload Image (I) — Place an image from your computer">🖼️ Image</button>
-      <button class="btn" id="btn-embed" title="Embed HTML — Place a sandboxed HTML widget">💻 Embed</button>
+      <button class="btn active" data-tool="select" title="Select (V)">▲</button>
+      <button class="btn" data-tool="rect" title="Rectangle (R)">▭</button>
+      <button class="btn" data-tool="ellipse" title="Ellipse (O)">○</button>
+      <button class="btn" data-tool="line" title="Line (L)">╱</button>
+      <button class="btn" data-tool="path" title="Freehand Pen (P)">✏</button>
+      <button class="btn" data-tool="text" title="Text (T)">T</button>
+      <button class="btn" data-tool="sticky" title="Sticky Note (S)">🗒</button>
+      <button class="btn" id="btn-img" title="Upload Image (I)">🖼</button>
+      <button class="btn" id="btn-embed" title="Embed HTML">⊞</button>
       <input type="file" id="file-input" accept="image/*" style="display: none;">
     </div>
 
-    <!-- Modifiers & Layering -->
+    <!-- Style Controls -->
     <div class="toolbar-group">
-      <input type="color" id="color-picker" value="#1f2430" title="Stroke / Ink Color" style="width:28px; height:28px; border:none; cursor:pointer; background:none;">
-      <input type="color" id="fill-picker" value="#ffffff" title="Fill Color (shapes only)" style="width:28px; height:28px; border:none; cursor:pointer; background:none;">
-      <input type="range" id="opacity-slider" min="10" max="100" value="100" title="Element Opacity (10-100%)" style="width:50px; height:6px;">
-      <label style="font-size: 11px; display:flex; align-items:center; gap:3px; cursor:pointer;" title="Add arrow head to lines">
-        <input type="checkbox" id="arrow-toggle"> Arrow
+      <label style="font-size:10px;color:var(--text-muted);">Stroke</label>
+      <input type="color" id="color-picker" value="#1f2430" title="Stroke / Ink Color" style="width:26px;height:26px;border:none;cursor:pointer;background:none;padding:0;">
+      <label style="font-size:10px;color:var(--text-muted);">Fill</label>
+      <input type="color" id="fill-picker" value="#ffffff" title="Fill Color (shapes only)" style="width:26px;height:26px;border:none;cursor:pointer;background:none;padding:0;">
+      <label style="font-size:10px;color:var(--text-muted);">W</label>
+      <input type="number" id="stroke-width" value="2" min="1" max="20" title="Stroke Width (px)" style="width:38px;padding:4px 5px;font-size:12px;">
+      <label style="font-size:10px;color:var(--text-muted);">Fs</label>
+      <input type="number" id="font-size" value="16" min="8" max="120" title="Font Size (text elements)" style="width:42px;padding:4px 5px;font-size:12px;">
+      <label style="font-size:10px;color:var(--text-muted);">α</label>
+      <input type="range" id="opacity-slider" min="10" max="100" value="100" title="Opacity (10–100%)" style="width:48px;height:6px;">
+      <label style="font-size:11px;display:flex;align-items:center;gap:3px;cursor:pointer;" title="Arrow head on lines">
+        <input type="checkbox" id="arrow-toggle"> →
       </label>
-      <button class="btn" id="btn-front" title="Bring Selection to Front (Ctrl + ])">⬆️</button>
-      <button class="btn" id="btn-back" title="Send Selection to Back (Ctrl + [)">⬇️</button>
-      <button class="btn btn-danger" id="btn-delete" title="Delete Selection (Del)">🗑️</button>
     </div>
 
-    <!-- History & Actions -->
+    <!-- Layer & Edit Actions -->
     <div class="toolbar-group">
-      <button class="btn" id="btn-undo" title="Undo (Ctrl+Z)">↩️</button>
-      <button class="btn" id="btn-redo" title="Redo (Ctrl+Y)">↪️</button>
-      <button class="btn" id="btn-export-png" title="Export board as PNG image">📸 PNG</button>
-      <button class="btn" id="btn-export-json" title="Export raw JSON file">💾 Save</button>
-      <button class="btn btn-danger" id="btn-clear" title="Clear board canvas">⚠️ Clear</button>
+      <button class="btn" id="btn-front" title="Bring to Front (Ctrl+])">⬆</button>
+      <button class="btn" id="btn-back" title="Send to Back (Ctrl+[)">⬇</button>
+      <button class="btn btn-danger" id="btn-delete" title="Delete (Del)">🗑</button>
+      <button class="btn" id="btn-undo" title="Undo (Ctrl+Z)">↩</button>
+      <button class="btn" id="btn-redo" title="Redo (Ctrl+Y / Ctrl+Shift+Z)">↪</button>
+    </div>
+
+    <!-- Zoom Controls -->
+    <div class="toolbar-group">
+      <button class="btn" id="btn-zoom-out" title="Zoom Out (−)">−</button>
+      <span id="zoom-display" style="font-size:12px;min-width:36px;text-align:center;color:var(--text-muted);cursor:pointer;" title="Reset zoom (0)">100%</span>
+      <button class="btn" id="btn-zoom-in" title="Zoom In (+)">+</button>
+    </div>
+
+    <!-- Export & Actions -->
+    <div class="toolbar-group">
+      <button class="btn" id="btn-export-png" title="Export PNG">📸</button>
+      <button class="btn" id="btn-export-json" title="Save JSON">💾</button>
+      <button class="btn btn-danger" id="btn-clear" title="Clear board">⚠</button>
     </div>
 
     <!-- Collaboration & AI -->
-    <div class="toolbar-group" style="border-right: none; margin-left: auto;">
-      <button class="btn btn-accent" id="btn-share" title="Copy live peer share link to clipboard">🔗 Share Live</button>
-      <button class="btn" id="btn-ai-toggle" title="Toggle AI Assistant Panel">🤖 Talk to AI</button>
-      <div id="presence-avatars" style="display:flex; gap: 4px; margin-left: 4px;"></div>
+    <div class="toolbar-group" style="border-right:none;margin-left:auto;">
+      <button class="btn btn-accent" id="btn-share" title="Copy live share link">🔗 Share</button>
+      <button class="btn" id="btn-ai-toggle" title="Toggle AI Panel">🤖 AI</button>
+      <div id="presence-avatars" style="display:flex;gap:4px;margin-left:4px;"></div>
     </div>
   </header>
 
@@ -384,11 +409,15 @@
     tool: 'select',
     color: '#1f2430',
     arrow: false,
+    strokeWidth: 2,
+    fontSize: 16,
     panX: 0,
     panY: 0,
     zoom: 1,
     isPanning: false,
     spacePressed: false,
+    isLasso: false,
+    lassoStart: { x: 0, y: 0 },
     history: [],
     historyIdx: -1,
     user: { id: '', name: 'Anonymous', color: '#4f63d2' },
@@ -410,10 +439,13 @@
   const colorPicker = document.getElementById('color-picker');
   const fillPicker = document.getElementById('fill-picker');
   const opacitySlider = document.getElementById('opacity-slider');
+  const strokeWidthInput = document.getElementById('stroke-width');
+  const fontSizeInput = document.getElementById('font-size');
   const arrowToggle = document.getElementById('arrow-toggle');
   const presenceContainer = document.getElementById('presence-avatars');
   const contextMenu = document.getElementById('context-menu');
   const fabAi = document.getElementById('fab-ai');
+  const zoomDisplay = document.getElementById('zoom-display');
 
   // --- INITIALIZATION ---
   function init() {
@@ -677,7 +709,19 @@
 
   function applyTransform() {
     world.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+    zoomDisplay.textContent = Math.round(state.zoom * 100) + '%';
     renderMinimap();
+  }
+
+  function setZoom(newZoom, centerX, centerY) {
+    const rect = viewport.getBoundingClientRect();
+    const cx = centerX ?? rect.left + rect.width / 2;
+    const cy = centerY ?? rect.top + rect.height / 2;
+    const mouseWorld = screenToWorld(cx, cy);
+    state.zoom = Math.max(0.1, Math.min(5, newZoom));
+    state.panX = cx - rect.left - mouseWorld.x * state.zoom;
+    state.panY = cy - rect.top - mouseWorld.y * state.zoom;
+    applyTransform();
   }
 
   // --- EVENT HANDLERS ---
@@ -711,14 +755,19 @@
       if (e.key === 'i' || e.key === 'I') { e.preventDefault(); document.getElementById('file-input').click(); }
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        if (e.shiftKey) redo(); else undo();
+        e.preventDefault(); if (e.shiftKey) redo(); else undo();
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'y') redo();
-      if ((e.ctrlKey || e.metaKey) && e.key === 'd') duplicateSelection();
-      if ((e.ctrlKey || e.metaKey) && e.key === ']') bringToFront();
-      if ((e.ctrlKey || e.metaKey) && e.key === '[') sendToBack();
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); duplicateSelection(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === ']') { e.preventDefault(); bringToFront(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === '[') { e.preventDefault(); sendToBack(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') { e.preventDefault(); state.selectedIds = state.elements.map(el => el.id); render(); }
       if (e.key === 'Delete' || e.key === 'Backspace') deleteSelection();
       if (e.key === 'Escape') { state.selectedIds = []; cleanSmartGuides(); render(); }
+      // Zoom shortcuts
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); setZoom(state.zoom * 1.15); }
+      if (e.key === '-') { e.preventDefault(); setZoom(state.zoom / 1.15); }
+      if (e.key === '0') { e.preventDefault(); setZoom(1); }
     });
 
     window.addEventListener('keyup', (e) => {
@@ -732,15 +781,7 @@
     viewport.addEventListener('wheel', (e) => {
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) {
-        // Pinch / Ctrl-Scroll Zoom
-        const zoomFactor = e.deltaY < 0 ? 1.08 : 0.92;
-        const mouseWorld = screenToWorld(e.clientX, e.clientY);
-        const newZoom = Math.max(0.15, Math.min(4.0, state.zoom * zoomFactor));
-
-        state.panX = e.clientX - viewport.getBoundingClientRect().left - mouseWorld.x * newZoom;
-        state.panY = e.clientY - viewport.getBoundingClientRect().top - mouseWorld.y * newZoom;
-        state.zoom = newZoom;
-        applyTransform();
+        setZoom(state.zoom * (e.deltaY < 0 ? 1.08 : 0.92), e.clientX, e.clientY);
       } else {
         // Trackpad / Scroll Pan
         state.panX -= e.deltaX;
@@ -796,6 +837,7 @@
         if (clickedEl) {
           if (!e.shiftKey && !e.ctrlKey) state.selectedIds = [clickedEl.id];
           else if (e.shiftKey && !state.selectedIds.includes(clickedEl.id)) state.selectedIds.push(clickedEl.id);
+          else if (e.shiftKey && state.selectedIds.includes(clickedEl.id)) state.selectedIds = state.selectedIds.filter(id => id !== clickedEl.id);
 
           isDrawing = true;
           dragStart = mouse;
@@ -805,7 +847,12 @@
             if (el) multiStart[id] = { x: el.x, y: el.y };
           });
         } else {
-          state.selectedIds = [];
+          if (!e.shiftKey) state.selectedIds = [];
+          // Start lasso
+          state.isLasso = true;
+          state.lassoStart = mouse;
+          dragStart = mouse;
+          isDrawing = true;
         }
         render();
       } else {
@@ -815,6 +862,7 @@
         currentElement = {
           id, type: state.tool, x: mouse.x, y: mouse.y, w: 0, h: 0,
           color: state.color, fill: fillPicker.value, opacity: parseFloat(opacitySlider.value) / 100,
+          strokeWidth: state.strokeWidth, fontSize: state.fontSize,
           text: '', points: [[mouse.x, mouse.y]], arrow: state.arrow, z: state.elements.length
         };
 
@@ -889,7 +937,9 @@
         return;
       }
 
-      if (state.tool === 'select' && state.selectedIds.length > 0) {
+      if (state.tool === 'select' && state.isLasso) {
+        renderLasso(state.lassoStart, mouse);
+      } else if (state.tool === 'select' && state.selectedIds.length > 0) {
         const dx = mouse.x - dragStart.x;
         const dy = mouse.y - dragStart.y;
         state.selectedIds.forEach(id => {
@@ -914,10 +964,29 @@
       }
     });
 
-    viewport.addEventListener('pointerup', () => {
+    viewport.addEventListener('pointerup', (e) => {
       if (state.isPanning) {
         state.isPanning = false;
         applyToolCursor();
+      }
+      if (state.isLasso) {
+        const mouse = screenToWorld(e.clientX, e.clientY);
+        const x1 = Math.min(state.lassoStart.x, mouse.x);
+        const x2 = Math.max(state.lassoStart.x, mouse.x);
+        const y1 = Math.min(state.lassoStart.y, mouse.y);
+        const y2 = Math.max(state.lassoStart.y, mouse.y);
+        state.selectedIds = state.elements.filter(el => {
+          const ex1 = Math.min(el.x, el.x + (el.w || 0));
+          const ex2 = Math.max(el.x, el.x + (el.w || 0));
+          const ey1 = Math.min(el.y, el.y + (el.h || 0));
+          const ey2 = Math.max(el.y, el.y + (el.h || 0));
+          return ex1 >= x1 && ex2 <= x2 && ey1 >= y1 && ey2 <= y2;
+        }).map(el => el.id);
+        state.isLasso = false;
+        isDrawing = false;
+        removeLasso();
+        render();
+        return;
       }
       if (isDrawing || isResizing) {
         isDrawing = false;
@@ -976,6 +1045,28 @@
     });
 
     arrowToggle.addEventListener('change', (e) => { state.arrow = e.target.checked; });
+
+    strokeWidthInput.addEventListener('input', (e) => {
+      state.strokeWidth = Math.max(1, parseInt(e.target.value) || 2);
+      state.selectedIds.forEach(id => {
+        const el = state.elements.find(el => el.id === id);
+        if (el) el.strokeWidth = state.strokeWidth;
+      });
+      render(); saveBoard();
+    });
+
+    fontSizeInput.addEventListener('input', (e) => {
+      state.fontSize = Math.max(8, parseInt(e.target.value) || 16);
+      state.selectedIds.forEach(id => {
+        const el = state.elements.find(el => el.id === id);
+        if (el && (el.type === 'text' || el.type === 'sticky')) el.fontSize = state.fontSize;
+      });
+      render(); saveBoard();
+    });
+
+    document.getElementById('btn-zoom-in').addEventListener('click', () => setZoom(state.zoom * 1.2));
+    document.getElementById('btn-zoom-out').addEventListener('click', () => setZoom(state.zoom / 1.2));
+    zoomDisplay.addEventListener('click', () => setZoom(1));
 
     boardTitleInput.addEventListener('change', (e) => {
       state.boardName = e.target.value || 'My Whiteboard';
@@ -1244,6 +1335,22 @@
   }
 
   // --- SMART GUIDES ---
+  function renderLasso(start, end) {
+    let lasso = document.getElementById('lasso-rect');
+    if (!lasso) { lasso = document.createElement('div'); lasso.id = 'lasso-rect'; viewport.appendChild(lasso); }
+    const s1 = worldToScreen(start.x, start.y);
+    const s2 = worldToScreen(end.x, end.y);
+    lasso.style.left = Math.min(s1.x, s2.x) + 'px';
+    lasso.style.top = Math.min(s1.y, s2.y) + 'px';
+    lasso.style.width = Math.abs(s2.x - s1.x) + 'px';
+    lasso.style.height = Math.abs(s2.y - s1.y) + 'px';
+  }
+
+  function removeLasso() {
+    const lasso = document.getElementById('lasso-rect');
+    if (lasso) lasso.remove();
+  }
+
   function cleanSmartGuides() {
     smartGuides.forEach(g => g.remove());
     smartGuides = [];
@@ -1409,15 +1516,18 @@
 
         if (el.type === 'rect') {
           div.style.borderColor = el.color || '#1f2430';
+          div.style.borderWidth = (el.strokeWidth || 2) + 'px';
           if (el.fill != null) div.style.backgroundColor = el.fill;
         }
         if (el.type === 'ellipse') {
           div.style.borderColor = el.color || '#1f2430';
+          div.style.borderWidth = (el.strokeWidth || 2) + 'px';
           if (el.fill != null) div.style.backgroundColor = el.fill;
         }
         if (el.type === 'sticky') {
           div.contentEditable = true;
           div.innerText = el.text || '';
+          div.style.fontSize = (el.fontSize || 14) + 'px';
           div.oninput = (e) => { el.text = e.target.innerText; saveBoard(); };
           if (el.fill != null) div.style.backgroundColor = el.fill;
         }
@@ -1425,6 +1535,7 @@
           div.contentEditable = true;
           div.innerText = el.text || 'Click to edit';
           div.style.color = el.color || '#1f2430';
+          div.style.fontSize = (el.fontSize || 16) + 'px';
           div.oninput = (e) => { el.text = e.target.innerText; saveBoard(); };
         }
         if (el.type === 'image') {
@@ -1449,7 +1560,7 @@
           line.setAttribute('x2', el.points[1][0]);
           line.setAttribute('y2', el.points[1][1]);
           line.setAttribute('stroke', el.color || '#1f2430');
-          line.setAttribute('stroke-width', '2.5');
+          line.setAttribute('stroke-width', el.strokeWidth || 2.5);
           line.setAttribute('stroke-linecap', 'round');
           if (el.arrow) line.setAttribute('marker-end', 'url(#arrowhead)');
           if (el.opacity != null) line.style.opacity = el.opacity;
@@ -1459,7 +1570,7 @@
           const pts = el.points.map(p => `${p[0]},${p[1]}`).join(' ');
           poly.setAttribute('points', pts);
           poly.setAttribute('stroke', el.color || '#1f2430');
-          poly.setAttribute('stroke-width', '2.5');
+          poly.setAttribute('stroke-width', el.strokeWidth || 2.5);
           poly.setAttribute('fill', 'none');
           poly.setAttribute('stroke-linecap', 'round');
           poly.setAttribute('stroke-linejoin', 'round');
@@ -1469,7 +1580,7 @@
       }
     });
 
-    // Render Selection Box & 8 Resize Handles
+    // Render Selection Box & Resize Handles
     if (state.selectedIds.length === 1) {
       const sel = state.elements.find(e => e.id === state.selectedIds[0]);
       if (sel && sel.w && sel.h) {
@@ -1480,10 +1591,8 @@
         box.style.width = Math.abs(sel.w) + 'px';
         box.style.height = Math.abs(sel.h) + 'px';
 
-        // Only show resize handles for non-SVG element types (not line/path)
         if (sel.type !== 'line' && sel.type !== 'path') {
-          const handles = ['nw','n','ne','e','se','s','sw','w'];
-          handles.forEach(h => {
+          ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
             const handle = document.createElement('div');
             handle.className = `resize-handle resize-handle-${h}`;
             handle.dataset.handle = h;
@@ -1491,6 +1600,34 @@
           });
         }
         world.appendChild(box);
+      }
+    } else if (state.selectedIds.length > 1) {
+      // Multi-select bounding box
+      const selected = state.elements.filter(e => state.selectedIds.includes(e.id) && e.w && e.h);
+      if (selected.length > 0) {
+        const bx1 = Math.min(...selected.map(e => Math.min(e.x, e.x + e.w)));
+        const by1 = Math.min(...selected.map(e => Math.min(e.y, e.y + e.h)));
+        const bx2 = Math.max(...selected.map(e => Math.max(e.x, e.x + e.w)));
+        const by2 = Math.max(...selected.map(e => Math.max(e.y, e.y + e.h)));
+        const box = document.createElement('div');
+        box.className = 'selection-box';
+        box.style.left = bx1 + 'px';
+        box.style.top = by1 + 'px';
+        box.style.width = (bx2 - bx1) + 'px';
+        box.style.height = (by2 - by1) + 'px';
+        world.appendChild(box);
+      }
+    }
+
+    // Sync toolbar to selected element's properties
+    if (state.selectedIds.length === 1) {
+      const sel = state.elements.find(e => e.id === state.selectedIds[0]);
+      if (sel) {
+        if (sel.color) colorPicker.value = sel.color;
+        if (sel.fill) fillPicker.value = sel.fill;
+        if (sel.opacity != null) opacitySlider.value = Math.round(sel.opacity * 100);
+        if (sel.strokeWidth != null) strokeWidthInput.value = sel.strokeWidth;
+        if (sel.fontSize != null) fontSizeInput.value = sel.fontSize;
       }
     }
 
@@ -1667,6 +1804,8 @@ Current Board Context (z-index sorted): ${JSON.stringify(boardContext)}`;
                 opacity: cmd.opacity != null ? cmd.opacity : 1,
                 arrow: cmd.arrow || false,
                 points: cmd.points || null,
+                strokeWidth: cmd.strokeWidth || 2,
+                fontSize: cmd.fontSize || 16,
                 z: state.elements.length
               };
               if (cmd.type === 'sticky' && !cmd.w) { newEl.w = 160; newEl.h = 160; }

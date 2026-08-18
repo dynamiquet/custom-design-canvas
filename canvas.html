@@ -292,6 +292,17 @@
       </label>
     </div>
 
+    <div class="toolbar-group">
+      <select id="size-preset-toolbar" title="Common size presets" style="max-width:170px;">
+        <option value="desktop">Desktop 1440 × 900</option>
+        <option value="laptop">Laptop 1280 × 800</option>
+        <option value="tablet">Tablet 768 × 1024</option>
+        <option value="phone">Phone 390 × 844</option>
+        <option value="phone-small">Phone 375 × 667</option>
+      </select>
+      <button class="btn" id="btn-apply-size" title="Apply preset to selected element">Size</button>
+    </div>
+
     <!-- Layer & Edit Actions -->
     <div class="toolbar-group">
       <button class="btn" id="btn-front" title="Bring to Front (Ctrl+])">⬆</button>
@@ -310,6 +321,8 @@
 
     <!-- Export & Actions -->
     <div class="toolbar-group">
+      <button class="btn" id="btn-fullscreen-canvas" title="Fullscreen whole canvas">⛶ Board</button>
+      <button class="btn" id="btn-fullscreen-element" title="Fullscreen selected element">▣ Item</button>
       <button class="btn" id="btn-export-png" title="Export PNG">📸</button>
       <button class="btn" id="btn-export-json" title="Save JSON">💾</button>
       <button class="btn btn-danger" id="btn-clear" title="Clear board">⚠</button>
@@ -331,7 +344,7 @@
       <svg id="svg-overlay"></svg>
     </div>
 
-    <div id="hint-banner">💡 Tip: Drag empty canvas or hold Space to Pan | Scroll wheel with Ctrl/Cmd to Zoom</div>
+    <div id="hint-banner">💡 Tip: Drag empty canvas to pan | Hold Shift to marquee select | Scroll wheel with Ctrl/Cmd to zoom</div>
 
     <!-- Interactive Minimap -->
     <div id="minimap-container">
@@ -436,6 +449,27 @@
       </div>
     </div>
     <div class="form-group">
+      <label>Size Preset</label>
+      <select id="embed-size-preset" style="width:100%;">
+        <option value="desktop">Desktop Website - 1440 × 900</option>
+        <option value="laptop">Laptop - 1280 × 800</option>
+        <option value="tablet">Tablet - 768 × 1024</option>
+        <option value="phone">Phone - 390 × 844</option>
+        <option value="phone-small">Phone Small - 375 × 667</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+    <div class="form-group" style="display:flex; gap:10px;">
+      <div style="flex:1;">
+        <label>Width</label>
+        <input type="number" id="embed-width-input" value="1440" min="120" max="4000" style="width:100%;">
+      </div>
+      <div style="flex:1;">
+        <label>Height</label>
+        <input type="number" id="embed-height-input" value="900" min="120" max="4000" style="width:100%;">
+      </div>
+    </div>
+    <div class="form-group">
       <label>Preview</label>
       <div style="height:160px; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:#f8fafc;">
         <iframe id="embed-preview" title="Embed preview" style="width:100%; height:100%; border:none; background:#fff;"></iframe>
@@ -493,6 +527,13 @@
       '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:8px"><div style="height:84%;background:#ef4444;border-radius:10px 10px 4px 4px"></div></div>',
       '</div>'
     ].join('')
+  };
+  const EMBED_SIZE_PRESETS = {
+    desktop: { w: 1440, h: 900 },
+    laptop: { w: 1280, h: 800 },
+    tablet: { w: 768, h: 1024 },
+    phone: { w: 390, h: 844 },
+    'phone-small': { w: 375, h: 667 }
   };
 
   // DOM Handles
@@ -792,7 +833,52 @@
     const mode = document.getElementById('embed-type-select').value;
     const url = document.getElementById('embed-url-input').value.trim();
     const html = document.getElementById('embed-code-input').value.trim();
-    return { mode, url, html };
+    const w = Math.max(120, parseInt(document.getElementById('embed-width-input').value, 10) || 1440);
+    const h = Math.max(120, parseInt(document.getElementById('embed-height-input').value, 10) || 900);
+    return { mode, url, html, w, h };
+  }
+
+  function applyEmbedSizePreset(preset) {
+    const size = EMBED_SIZE_PRESETS[preset];
+    if (!size) return;
+    document.getElementById('embed-width-input').value = size.w;
+    document.getElementById('embed-height-input').value = size.h;
+  }
+
+  function applySizePresetToSelection(preset) {
+    const size = EMBED_SIZE_PRESETS[preset];
+    if (!size || state.selectedIds.length !== 1) return false;
+    const el = state.elements.find(item => item.id === state.selectedIds[0]);
+    if (!el || el.type === 'line' || el.type === 'path') return false;
+    const left = Math.min(el.x, el.x + (el.w || 0));
+    const top = Math.min(el.y, el.y + (el.h || 0));
+    const cx = left + Math.abs(el.w || 0) / 2;
+    const cy = top + Math.abs(el.h || 0) / 2;
+    el.w = size.w;
+    el.h = size.h;
+    el.x = cx - size.w / 2;
+    el.y = cy - size.h / 2;
+    render();
+    saveBoard();
+    saveHistory();
+    return true;
+  }
+
+  function toggleCanvasFullscreen() {
+    const app = document.getElementById('app');
+    if (document.fullscreenElement === app) document.exitFullscreen();
+    else app.requestFullscreen?.();
+  }
+
+  function fullscreenSelectedElement() {
+    if (state.selectedIds.length !== 1) return false;
+    const el = state.elements.find(item => item.id === state.selectedIds[0]);
+    if (!el || el.type === 'line' || el.type === 'path') return false;
+    const elementNode = world.querySelector(`.element[data-id="${el.id}"]`);
+    if (!elementNode) return false;
+    if (document.fullscreenElement === elementNode) document.exitFullscreen();
+    else elementNode.requestFullscreen?.();
+    return true;
   }
 
   function updateEmbedModalVisibility() {
@@ -953,12 +1039,17 @@
             if (el) multiStart[id] = { x: el.x, y: el.y };
           });
         } else {
-          if (!e.shiftKey) state.selectedIds = [];
-          // Start lasso
-          state.isLasso = true;
-          state.lassoStart = mouse;
-          dragStart = mouse;
-          isDrawing = true;
+          state.selectedIds = [];
+          if (e.shiftKey) {
+            state.isLasso = true;
+            state.lassoStart = mouse;
+            dragStart = mouse;
+            isDrawing = true;
+          } else {
+            state.isPanning = true;
+            dragStart = { x: e.clientX, y: e.clientY };
+            viewport.style.cursor = 'grabbing';
+          }
         }
         render();
       } else {
@@ -1086,7 +1177,7 @@
           const ex2 = Math.max(el.x, el.x + (el.w || 0));
           const ey1 = Math.min(el.y, el.y + (el.h || 0));
           const ey2 = Math.max(el.y, el.y + (el.h || 0));
-          return ex1 >= x1 && ex2 <= x2 && ey1 >= y1 && ey2 <= y2;
+          return ex2 >= x1 && ex1 <= x2 && ey2 >= y1 && ey1 <= y2;
         }).map(el => el.id);
         state.isLasso = false;
         isDrawing = false;
@@ -1188,6 +1279,14 @@
     document.getElementById('btn-redo').addEventListener('click', redo);
     document.getElementById('btn-front').addEventListener('click', () => changeZOrder(1));
     document.getElementById('btn-back').addEventListener('click', () => changeZOrder(-1));
+    document.getElementById('btn-fullscreen-canvas').addEventListener('click', toggleCanvasFullscreen);
+    document.getElementById('btn-fullscreen-element').addEventListener('click', () => {
+      if (!fullscreenSelectedElement()) alert('Select one rectangular element, image, text block, sticky note, or embed first.');
+    });
+    document.getElementById('btn-apply-size').addEventListener('click', () => {
+      const applied = applySizePresetToSelection(document.getElementById('size-preset-toolbar').value);
+      if (!applied) alert('Select one rectangular element, image, text block, sticky note, or embed first.');
+    });
 
     document.getElementById('btn-clear').addEventListener('click', () => {
       if (confirm('Clear the entire whiteboard canvas?')) {
@@ -1232,6 +1331,9 @@
     const embedTypeSelect = document.getElementById('embed-type-select');
     const embedUrlInput = document.getElementById('embed-url-input');
     const embedCodeInput = document.getElementById('embed-code-input');
+    const embedSizePreset = document.getElementById('embed-size-preset');
+    const embedWidthInput = document.getElementById('embed-width-input');
+    const embedHeightInput = document.getElementById('embed-height-input');
     document.getElementById('btn-embed').addEventListener('click', () => {
       embedModal.classList.add('active');
       updateEmbedModalVisibility();
@@ -1241,6 +1343,14 @@
     embedTypeSelect.addEventListener('change', () => {
       updateEmbedModalVisibility();
       updateEmbedPreview();
+    });
+    embedSizePreset.addEventListener('change', () => {
+      applyEmbedSizePreset(embedSizePreset.value);
+    });
+    [embedWidthInput, embedHeightInput].forEach(input => {
+      input.addEventListener('input', () => {
+        embedSizePreset.value = 'custom';
+      });
     });
     embedUrlInput.addEventListener('input', updateEmbedPreview);
     embedCodeInput.addEventListener('input', updateEmbedPreview);
@@ -1253,18 +1363,20 @@
       });
     });
     document.getElementById('btn-embed-confirm').addEventListener('click', () => {
-      const { mode, url, html } = getEmbedDraft();
+      const { mode, url, html, w, h } = getEmbedDraft();
       if (mode === 'url' ? url : html) {
         const center = screenToWorld(window.innerWidth/2, window.innerHeight/2);
         state.elements.push({
           id: 'el_' + Math.random().toString(36).substr(2, 9),
-          type: 'embed', x: center.x - 180, y: center.y - 120, w: 360, h: 240, html, src: url, embedMode: mode, interactive: false, z: state.elements.length,
+          type: 'embed', x: center.x - w / 2, y: center.y - h / 2, w, h, html, src: url, embedMode: mode, interactive: false, z: state.elements.length,
           opacity: parseFloat(opacitySlider.value) / 100
         });
         render(); saveBoard(); saveHistory();
         closeEmbedModal();
         embedUrlInput.value = '';
         embedCodeInput.value = '';
+        embedSizePreset.value = 'desktop';
+        applyEmbedSizePreset('desktop');
         updateEmbedPreview();
       }
     });
@@ -1637,6 +1749,7 @@
       if (el.type === 'rect' || el.type === 'ellipse' || el.type === 'sticky' || el.type === 'text' || el.type === 'image' || el.type === 'embed') {
         const div = document.createElement('div');
         div.className = `element element-${el.type}`;
+        div.dataset.id = el.id;
         div.style.left = Math.min(el.x, el.x + el.w) + 'px';
         div.style.top = Math.min(el.y, el.y + el.h) + 'px';
         div.style.width = Math.abs(el.w) + 'px';
@@ -1693,15 +1806,18 @@
           shield.className = `embed-shield${el.interactive ? ' hidden' : ''}`;
           const hint = document.createElement('div');
           hint.className = 'embed-chip';
-          hint.textContent = 'Move on canvas';
+          hint.textContent = 'Canvas mode';
           const enterBtn = document.createElement('button');
           enterBtn.className = 'embed-chip embed-chip-btn';
-          enterBtn.textContent = 'Interact';
+          enterBtn.textContent = 'Enter embed';
           enterBtn.type = 'button';
-          enterBtn.addEventListener('click', (evt) => {
+          const enterEmbed = (evt) => {
+            evt.preventDefault();
             evt.stopPropagation();
             setActiveEmbed(el.id);
-          });
+          };
+          enterBtn.addEventListener('pointerdown', enterEmbed);
+          enterBtn.addEventListener('click', (evt) => evt.preventDefault());
           shield.appendChild(hint);
           shield.appendChild(enterBtn);
           div.appendChild(shield);
@@ -1711,12 +1827,15 @@
             controls.className = 'embed-controls';
             const exitBtn = document.createElement('button');
             exitBtn.className = 'embed-chip embed-chip-btn';
-            exitBtn.textContent = 'Exit';
+            exitBtn.textContent = 'Exit embed';
             exitBtn.type = 'button';
-            exitBtn.addEventListener('click', (evt) => {
+            const exitEmbed = (evt) => {
+              evt.preventDefault();
               evt.stopPropagation();
               setActiveEmbed(null);
-            });
+            };
+            exitBtn.addEventListener('pointerdown', exitEmbed);
+            exitBtn.addEventListener('click', (evt) => evt.preventDefault());
             controls.appendChild(exitBtn);
             div.appendChild(controls);
           }

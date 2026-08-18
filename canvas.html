@@ -76,7 +76,34 @@
     }
     .element-text { outline: none; font-size: 16px; min-width: 50px; min-height: 24px; white-space: pre-wrap; word-break: break-word; cursor: text; }
     .element-image img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-    .element-embed iframe { width: 100%; height: 100%; border: none; background: #fff; pointer-events: auto; }
+    .element-embed {
+      overflow: hidden; border-radius: 10px; background: #fff; border: 1px solid var(--border);
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    }
+    .element-embed iframe { width: 100%; height: 100%; border: none; background: #fff; pointer-events: none; }
+    .element-embed.is-interactive iframe { pointer-events: auto; }
+    .embed-shield {
+      position: absolute; inset: 0; display: flex; align-items: flex-start; justify-content: space-between;
+      padding: 8px; background: linear-gradient(to bottom, rgba(15,23,42,0.08), transparent 44px);
+      pointer-events: auto;
+    }
+    .embed-shield.hidden { display: none; }
+    .embed-controls {
+      position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; z-index: 2; pointer-events: auto;
+    }
+    .embed-chip {
+      background: rgba(255,255,255,0.92); border: 1px solid rgba(148,163,184,0.45); color: #0f172a;
+      border-radius: 999px; padding: 4px 8px; font-size: 11px; line-height: 1; backdrop-filter: blur(4px);
+      box-shadow: 0 2px 8px rgba(15,23,42,0.08);
+    }
+    .embed-chip-btn {
+      background: rgba(79,99,210,0.96); border-color: rgba(79,99,210,0.96); color: #fff; cursor: pointer;
+    }
+    .embed-chip-btn:hover { background: var(--accent-hover); }
+    .embed-empty {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); font-size: 12px; text-align: center; padding: 16px;
+    }
 
     /* Selection Box */
     .selection-box {
@@ -385,10 +412,34 @@
 <!-- Embed Modal -->
 <div class="modal-overlay" id="modal-embed">
   <div class="modal">
-    <h3>Embed Live HTML Widget</h3>
-    <p>Paste raw HTML/JS code. It will execute safely inside a sandboxed iframe on the canvas.</p>
+    <h3>Embed Widget</h3>
+    <p>Use a URL for framed sites or paste custom HTML/JS. Embeds stay movable until you explicitly enter interaction mode.</p>
     <div class="form-group">
-      <textarea id="embed-code-input" style="width:100%; height:120px; padding:8px; border:1px solid var(--border); border-radius:6px; font-family:monospace; font-size:12px;" placeholder="<button onclick='alert(\"Hello\")'>Click Me</button>"></textarea>
+      <label>Embed Type</label>
+      <select id="embed-type-select" style="width:100%;">
+        <option value="url">Website URL</option>
+        <option value="html">Custom HTML / JS</option>
+      </select>
+    </div>
+    <div class="form-group" id="embed-url-group">
+      <label>URL</label>
+      <input type="text" id="embed-url-input" placeholder="https://example.com" style="width:100%;">
+      <div style="margin-top:6px; font-size:11px; color:var(--text-muted);">Some sites block iframe embedding. When that happens, use custom HTML or a provider-specific embed URL.</div>
+    </div>
+    <div class="form-group" id="embed-code-group" style="display:none;">
+      <label>HTML / JS</label>
+      <textarea id="embed-code-input" style="width:100%; height:120px; padding:8px; border:1px solid var(--border); border-radius:6px; font-family:monospace; font-size:12px;" placeholder="<button onclick='alert(&quot;Hello&quot;)'>Click Me</button>"></textarea>
+      <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+        <button class="btn" type="button" data-embed-template="button">Button</button>
+        <button class="btn" type="button" data-embed-template="timer">Timer</button>
+        <button class="btn" type="button" data-embed-template="chart">Bars</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Preview</label>
+      <div style="height:160px; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:#f8fafc;">
+        <iframe id="embed-preview" title="Embed preview" style="width:100%; height:100%; border:none; background:#fff;"></iframe>
+      </div>
     </div>
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button class="btn" id="btn-embed-close">Cancel</button>
@@ -417,6 +468,7 @@
     isPanning: false,
     spacePressed: false,
     isLasso: false,
+    activeEmbedId: null,
     lassoStart: { x: 0, y: 0 },
     history: [],
     historyIdx: -1,
@@ -430,6 +482,18 @@
   };
 
   const DEFAULT_AI_MESSAGE = 'Hi! I can directly read and modify elements on your canvas. Ask me to draw shapes, place sticky notes, clean up layout, or drop custom HTML widgets!';
+  const EMBED_TEMPLATES = {
+    button: `<button style="padding:10px 14px;border:none;border-radius:999px;background:#4f63d2;color:white;font:600 14px system-ui;cursor:pointer" onclick="this.textContent='Clicked'">Click me</button>`,
+    timer: `<div style="font:600 28px system-ui;padding:24px;text-align:center"><span id="t">0</span>s</div><script>let n=0;setInterval(()=>document.getElementById('t').textContent=++n,1000)<\/script>`,
+    chart: [
+      '<div style="display:flex;align-items:flex-end;gap:10px;height:100%;padding:20px;background:#fff">',
+      '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:8px"><div style="height:48%;background:#4f63d2;border-radius:10px 10px 4px 4px"></div></div>',
+      '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:8px"><div style="height:72%;background:#22c55e;border-radius:10px 10px 4px 4px"></div></div>',
+      '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:8px"><div style="height:36%;background:#f59e0b;border-radius:10px 10px 4px 4px"></div></div>',
+      '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:8px"><div style="height:84%;background:#ef4444;border-radius:10px 10px 4px 4px"></div></div>',
+      '</div>'
+    ].join('')
+  };
 
   // DOM Handles
   const viewport = document.getElementById('viewport');
@@ -724,6 +788,47 @@
     applyTransform();
   }
 
+  function getEmbedDraft() {
+    const mode = document.getElementById('embed-type-select').value;
+    const url = document.getElementById('embed-url-input').value.trim();
+    const html = document.getElementById('embed-code-input').value.trim();
+    return { mode, url, html };
+  }
+
+  function updateEmbedModalVisibility() {
+    const mode = document.getElementById('embed-type-select').value;
+    document.getElementById('embed-url-group').style.display = mode === 'url' ? 'block' : 'none';
+    document.getElementById('embed-code-group').style.display = mode === 'html' ? 'block' : 'none';
+  }
+
+  function updateEmbedPreview() {
+    const preview = document.getElementById('embed-preview');
+    const { mode, url, html } = getEmbedDraft();
+    preview.removeAttribute('src');
+    preview.removeAttribute('srcdoc');
+    if (mode === 'url') {
+      if (!url) {
+        preview.srcdoc = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:#64748b;font:13px system-ui">Paste a URL to preview it here.</div>';
+        return;
+      }
+      preview.src = url;
+      return;
+    }
+    preview.srcdoc = html || '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:#64748b;font:13px system-ui">Paste HTML or pick a starter template.</div>';
+  }
+
+  function closeEmbedModal() {
+    document.getElementById('modal-embed').classList.remove('active');
+  }
+
+  function setActiveEmbed(embedId) {
+    state.activeEmbedId = embedId;
+    state.elements.forEach(el => {
+      if (el.type === 'embed') el.interactive = el.id === embedId;
+    });
+    render();
+  }
+
   // --- EVENT HANDLERS ---
   let isDrawing = false;
   let currentElement = null;
@@ -763,7 +868,7 @@
       if ((e.ctrlKey || e.metaKey) && e.key === '[') { e.preventDefault(); sendToBack(); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') { e.preventDefault(); state.selectedIds = state.elements.map(el => el.id); render(); }
       if (e.key === 'Delete' || e.key === 'Backspace') deleteSelection();
-      if (e.key === 'Escape') { state.selectedIds = []; cleanSmartGuides(); render(); }
+      if (e.key === 'Escape') { state.selectedIds = []; cleanSmartGuides(); setActiveEmbed(null); render(); }
       // Zoom shortcuts
       if (e.key === '=' || e.key === '+') { e.preventDefault(); setZoom(state.zoom * 1.15); }
       if (e.key === '-') { e.preventDefault(); setZoom(state.zoom / 1.15); }
@@ -805,6 +910,7 @@
     // Pointer Pointer Actions
     viewport.addEventListener('pointerdown', (e) => {
       if (e.target.closest('#minimap-container') || e.target.closest('#ai-sidebar') || e.target.closest('header')) return;
+      if (state.activeEmbedId && !e.target.closest('.element-embed')) setActiveEmbed(null);
 
       // Right-click is handled by contextmenu event, not pointerdown
       if (e.button === 2) return;
@@ -1123,20 +1229,43 @@
 
     // HTML Embed Modal
     const embedModal = document.getElementById('modal-embed');
-    document.getElementById('btn-embed').addEventListener('click', () => embedModal.classList.add('active'));
-    document.getElementById('btn-embed-close').addEventListener('click', () => embedModal.classList.remove('active'));
+    const embedTypeSelect = document.getElementById('embed-type-select');
+    const embedUrlInput = document.getElementById('embed-url-input');
+    const embedCodeInput = document.getElementById('embed-code-input');
+    document.getElementById('btn-embed').addEventListener('click', () => {
+      embedModal.classList.add('active');
+      updateEmbedModalVisibility();
+      updateEmbedPreview();
+    });
+    document.getElementById('btn-embed-close').addEventListener('click', closeEmbedModal);
+    embedTypeSelect.addEventListener('change', () => {
+      updateEmbedModalVisibility();
+      updateEmbedPreview();
+    });
+    embedUrlInput.addEventListener('input', updateEmbedPreview);
+    embedCodeInput.addEventListener('input', updateEmbedPreview);
+    document.querySelectorAll('[data-embed-template]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        embedTypeSelect.value = 'html';
+        embedCodeInput.value = EMBED_TEMPLATES[btn.dataset.embedTemplate] || '';
+        updateEmbedModalVisibility();
+        updateEmbedPreview();
+      });
+    });
     document.getElementById('btn-embed-confirm').addEventListener('click', () => {
-      const html = document.getElementById('embed-code-input').value;
-      if (html) {
+      const { mode, url, html } = getEmbedDraft();
+      if (mode === 'url' ? url : html) {
         const center = screenToWorld(window.innerWidth/2, window.innerHeight/2);
         state.elements.push({
           id: 'el_' + Math.random().toString(36).substr(2, 9),
-          type: 'embed', x: center.x - 150, y: center.y - 100, w: 300, h: 200, html, z: state.elements.length,
+          type: 'embed', x: center.x - 180, y: center.y - 120, w: 360, h: 240, html, src: url, embedMode: mode, interactive: false, z: state.elements.length,
           opacity: parseFloat(opacitySlider.value) / 100
         });
         render(); saveBoard(); saveHistory();
-        embedModal.classList.remove('active');
-        document.getElementById('embed-code-input').value = '';
+        closeEmbedModal();
+        embedUrlInput.value = '';
+        embedCodeInput.value = '';
+        updateEmbedPreview();
       }
     });
 
@@ -1544,10 +1673,53 @@
           div.appendChild(img);
         }
         if (el.type === 'embed') {
-          const iframe = document.createElement('iframe');
-          iframe.setAttribute('sandbox', 'allow-scripts');
-          iframe.setAttribute('srcdoc', escapeHtml(el.html));
-          div.appendChild(iframe);
+          div.classList.toggle('is-interactive', !!el.interactive);
+          div.addEventListener('dblclick', () => setActiveEmbed(el.id));
+          if ((el.embedMode === 'url' && el.src) || el.html) {
+            const iframe = document.createElement('iframe');
+            iframe.setAttribute('sandbox', 'allow-scripts allow-forms');
+            iframe.setAttribute('title', 'Embedded widget');
+            if (el.embedMode === 'url' && el.src) iframe.src = el.src;
+            else iframe.srcdoc = el.html;
+            div.appendChild(iframe);
+          } else {
+            const empty = document.createElement('div');
+            empty.className = 'embed-empty';
+            empty.textContent = 'Empty embed';
+            div.appendChild(empty);
+          }
+
+          const shield = document.createElement('div');
+          shield.className = `embed-shield${el.interactive ? ' hidden' : ''}`;
+          const hint = document.createElement('div');
+          hint.className = 'embed-chip';
+          hint.textContent = 'Move on canvas';
+          const enterBtn = document.createElement('button');
+          enterBtn.className = 'embed-chip embed-chip-btn';
+          enterBtn.textContent = 'Interact';
+          enterBtn.type = 'button';
+          enterBtn.addEventListener('click', (evt) => {
+            evt.stopPropagation();
+            setActiveEmbed(el.id);
+          });
+          shield.appendChild(hint);
+          shield.appendChild(enterBtn);
+          div.appendChild(shield);
+
+          if (el.interactive) {
+            const controls = document.createElement('div');
+            controls.className = 'embed-controls';
+            const exitBtn = document.createElement('button');
+            exitBtn.className = 'embed-chip embed-chip-btn';
+            exitBtn.textContent = 'Exit';
+            exitBtn.type = 'button';
+            exitBtn.addEventListener('click', (evt) => {
+              evt.stopPropagation();
+              setActiveEmbed(null);
+            });
+            controls.appendChild(exitBtn);
+            div.appendChild(controls);
+          }
         }
 
         world.appendChild(div);
@@ -1632,10 +1804,6 @@
     }
 
     renderMinimap();
-  }
-
-  function escapeHtml(str) {
-    return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   // --- MINIMAP RENDERING ---

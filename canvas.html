@@ -1739,70 +1739,113 @@
     svg.innerHTML = '';
     ensureArrowMarker();
 
-    // Remove old elements and selection box (preserve smart guides & dim label)
-    document.querySelectorAll('.element, .selection-box').forEach(e => e.remove());
+    // Keep element DOM nodes stable so selecting/editing doesn't flash or drop fullscreen.
+    document.querySelectorAll('.selection-box').forEach(e => e.remove());
+    const existingNodes = new Map(
+      Array.from(world.querySelectorAll('.element')).map(node => [node.dataset.id, node])
+    );
+    const seenIds = new Set();
 
     // Sort elements by Z index
     state.elements.sort((a,b) => (a.z || 0) - (b.z || 0));
 
     state.elements.forEach(el => {
       if (el.type === 'rect' || el.type === 'ellipse' || el.type === 'sticky' || el.type === 'text' || el.type === 'image' || el.type === 'embed') {
-        const div = document.createElement('div');
+        let div = existingNodes.get(el.id);
+        if (!div) {
+          div = document.createElement('div');
+          div.dataset.id = el.id;
+        }
+        seenIds.add(el.id);
         div.className = `element element-${el.type}`;
         div.dataset.id = el.id;
+        if (div.dataset.renderType !== el.type) div.replaceChildren();
+        div.dataset.renderType = el.type;
         div.style.left = Math.min(el.x, el.x + el.w) + 'px';
         div.style.top = Math.min(el.y, el.y + el.h) + 'px';
         div.style.width = Math.abs(el.w) + 'px';
         div.style.height = Math.abs(el.h) + 'px';
         if (el.opacity != null) div.style.opacity = el.opacity;
+        div.style.backgroundColor = '';
+        div.style.borderColor = '';
+        div.style.borderWidth = '';
+        div.style.color = '';
+        div.style.fontSize = '';
+        div.contentEditable = false;
+        div.oninput = null;
+        div.ondblclick = null;
 
         if (el.type === 'rect') {
+          if (div.firstChild) div.replaceChildren();
           div.style.borderColor = el.color || '#1f2430';
           div.style.borderWidth = (el.strokeWidth || 2) + 'px';
           if (el.fill != null) div.style.backgroundColor = el.fill;
         }
         if (el.type === 'ellipse') {
+          if (div.firstChild) div.replaceChildren();
           div.style.borderColor = el.color || '#1f2430';
           div.style.borderWidth = (el.strokeWidth || 2) + 'px';
           if (el.fill != null) div.style.backgroundColor = el.fill;
         }
         if (el.type === 'sticky') {
           div.contentEditable = true;
-          div.innerText = el.text || '';
+          if (document.activeElement !== div && div.innerText !== (el.text || '')) div.innerText = el.text || '';
           div.style.fontSize = (el.fontSize || 14) + 'px';
           div.oninput = (e) => { el.text = e.target.innerText; saveBoard(); };
           if (el.fill != null) div.style.backgroundColor = el.fill;
         }
         if (el.type === 'text') {
           div.contentEditable = true;
-          div.innerText = el.text || 'Click to edit';
+          if (document.activeElement !== div && div.innerText !== (el.text || 'Click to edit')) div.innerText = el.text || 'Click to edit';
           div.style.color = el.color || '#1f2430';
           div.style.fontSize = (el.fontSize || 16) + 'px';
           div.oninput = (e) => { el.text = e.target.innerText; saveBoard(); };
         }
         if (el.type === 'image') {
-          const img = document.createElement('img');
-          img.src = el.src;
-          div.appendChild(img);
+          let img = div.querySelector('img');
+          if (!img) {
+            div.replaceChildren();
+            img = document.createElement('img');
+            div.appendChild(img);
+          }
+          if (img.src !== el.src) img.src = el.src;
         }
         if (el.type === 'embed') {
           div.classList.toggle('is-interactive', !!el.interactive);
-          div.addEventListener('dblclick', () => setActiveEmbed(el.id));
-          if ((el.embedMode === 'url' && el.src) || el.html) {
-            const iframe = document.createElement('iframe');
-            iframe.setAttribute('sandbox', 'allow-scripts allow-forms');
-            iframe.setAttribute('title', 'Embedded widget');
-            if (el.embedMode === 'url' && el.src) iframe.src = el.src;
-            else iframe.srcdoc = el.html;
-            div.appendChild(iframe);
+          div.ondblclick = () => setActiveEmbed(el.id);
+          let iframe = div.querySelector('iframe');
+          let empty = div.querySelector('.embed-empty');
+          const hasEmbedContent = (el.embedMode === 'url' && el.src) || el.html;
+          if (hasEmbedContent) {
+            if (empty) empty.remove();
+            if (!iframe) {
+              iframe = document.createElement('iframe');
+              iframe.setAttribute('sandbox', 'allow-scripts allow-forms');
+              iframe.setAttribute('title', 'Embedded widget');
+              div.prepend(iframe);
+            }
+            if (el.embedMode === 'url' && el.src) {
+              if (iframe.src !== el.src) iframe.src = el.src;
+              iframe.removeAttribute('srcdoc');
+            } else {
+              if (iframe.srcdoc !== el.html) iframe.srcdoc = el.html;
+              iframe.removeAttribute('src');
+            }
           } else {
-            const empty = document.createElement('div');
-            empty.className = 'embed-empty';
+            if (iframe) iframe.remove();
+            if (!empty) {
+              empty = document.createElement('div');
+              empty.className = 'embed-empty';
+              div.prepend(empty);
+            }
             empty.textContent = 'Empty embed';
-            div.appendChild(empty);
           }
 
-          const shield = document.createElement('div');
+          let shield = div.querySelector('.embed-shield');
+          if (!shield) {
+            shield = document.createElement('div');
+            div.appendChild(shield);
+          }
           shield.className = `embed-shield${el.interactive ? ' hidden' : ''}`;
           const hint = document.createElement('div');
           hint.className = 'embed-chip';
@@ -1818,10 +1861,10 @@
           };
           enterBtn.addEventListener('pointerdown', enterEmbed);
           enterBtn.addEventListener('click', (evt) => evt.preventDefault());
-          shield.appendChild(hint);
-          shield.appendChild(enterBtn);
-          div.appendChild(shield);
+          shield.replaceChildren(hint, enterBtn);
 
+          const oldControls = div.querySelector('.embed-controls');
+          if (oldControls) oldControls.remove();
           if (el.interactive) {
             const controls = document.createElement('div');
             controls.className = 'embed-controls';
@@ -1869,6 +1912,10 @@
           svg.appendChild(poly);
         }
       }
+    });
+
+    existingNodes.forEach((node, id) => {
+      if (!seenIds.has(id)) node.remove();
     });
 
     // Render Selection Box & Resize Handles

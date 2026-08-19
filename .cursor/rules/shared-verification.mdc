@@ -1,0 +1,11 @@
+---
+description: Shared expectations for verification and scope
+alwaysApply: true
+---
+
+# Verification And Scope
+
+- Verify meaningful behavior changes before wrapping up, but prefer focused checks over heavy process.
+- Add or update tests only when they materially reduce regression risk or match nearby project patterns.
+- Do not mix cleanup, refactors, and feature work in one change unless the task clearly benefits from it.
+- If a request is ambiguous and the answer changes the implementation, ask before guessing.

@@ -1,0 +1,12 @@
+---
+description: Shared behavior guardrails for canvas features
+globs: canvas.html
+alwaysApply: false
+---
+
+# Canvas Behavior Guardrails
+
+- Respect existing persistence, collaboration, selection, and viewport behavior when editing feature code.
+- Prefer extending current shortcuts, menus, and toolbar controls instead of introducing parallel interaction patterns.
+- Keep new UI text short and action-oriented so the canvas stays lightweight.
+- Avoid changes that silently discard user data, history, or in-progress edits.

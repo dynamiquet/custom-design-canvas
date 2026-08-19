@@ -1,0 +1,13 @@
+---
+description: Editing guidance for the single-file canvas app
+globs: canvas.html
+alwaysApply: false
+---
+
+# Single-File Canvas App
+
+- Keep the app dependency-light: plain DOM code first, third-party scripts only when clearly justified.
+- Prefer extending existing `state`, event wiring, and element-rendering flows over parallel abstractions.
+- For styling, reuse existing CSS variables and component patterns before adding new colors, spacing values, or one-off classes.
+- When adding UI controls, keep toolbar and modal markup compact and consistent with existing button and input styles.
+- Avoid large architectural rewrites inside `canvas.html` unless the task explicitly asks for restructuring.

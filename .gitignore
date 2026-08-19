@@ -1,0 +1,15 @@
+.DS_Store
+Thumbs.db
+
+# Editor noise
+.cursor-cache/
+.cursor/rules/local-*.mdc
+.idea/
+.vscode/
+
+# Local experiments and exports
+*.log
+*.tmp
+*.bak
+exports/
+snapshots/

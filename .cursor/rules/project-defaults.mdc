@@ -1,0 +1,13 @@
+---
+description: Core rules for this canvas project
+alwaysApply: true
+---
+
+# Canvas Project Defaults
+
+- Keep diffs small and local; do not refactor unrelated parts of the file.
+- Prefer existing vanilla HTML, CSS, and browser APIs over new dependencies or build tooling.
+- Treat `canvas.html` as the primary app surface; only split code into new files when it clearly reduces complexity.
+- Preserve current UI behavior unless the task explicitly asks for a behavior change.
+- Reuse existing naming, DOM patterns, and state structure before introducing new helpers.
+- Add comments only for non-obvious constraints, tradeoffs, or browser gotchas.
